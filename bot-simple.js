@@ -84,10 +84,55 @@ const createSampleAdmins = () => {
 
 const adminsData = loadAdminsData();
 
+// Load mapping Facebook ID với admin
+const loadFacebookAdminMapping = () => {
+  try {
+    const mappingPath = path.join(process.cwd(), 'fb-admin-mapping.json');
+    const mappingContent = fs.readFileSync(mappingPath, 'utf8');
+    const data = JSON.parse(mappingContent);
+    console.log(`📱 Đã load ${Object.keys(data.facebook_admin_mapping).length} Facebook ID mapping`);
+    return data.facebook_admin_mapping;
+  } catch (error) {
+    console.error('Lỗi khi load Facebook mapping:', error);
+    return {};
+  }
+};
+
+const fbAdminMapping = loadFacebookAdminMapping();
+
 // Regex để phát hiện link Facebook
 const facebookLinkRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/[^\s]+/gi;
 
-// Hàm lấy tên từ Telegram user
+// Hàm extract Facebook ID từ URL
+const extractFacebookId = (url) => {
+  // Các pattern Facebook ID
+  const patterns = [
+    /(?:profile\.php\?id=)(\d+)/,  // profile.php?id=123456789
+    /facebook\.com\/(\d+)/,        // facebook.com/123456789
+    /fb\.com\/(\d+)/               // fb.com/123456789
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  return null;
+};
+
+// Hàm tìm admin bằng Facebook ID
+const findAdminByFacebookId = (fbId) => {
+  if (!fbId || !fbAdminMapping[fbId]) {
+    return null;
+  }
+  
+  const mappedAdmin = fbAdminMapping[fbId];
+  // Tìm thông tin đầy đủ từ adminsData
+  return adminsData.find(admin => 
+    admin.name === mappedAdmin.name || admin.stt === mappedAdmin.stt
+  ) || mappedAdmin;
+};
 const getTelegramUserName = (msg) => {
   if (msg.from.first_name && msg.from.last_name) {
     return `${msg.from.first_name} ${msg.from.last_name}`;
@@ -174,9 +219,18 @@ bot.on('message', async (msg) => {
       // Lấy tên từ Telegram user
       const userName = getTelegramUserName(msg);
       
-      // Không tự động tìm admin bằng tên Telegram user
-      // Chỉ hiển thị "Chưa xác định" vì không thể xác minh từ link FB
-      const admin = null; // Tạm thời set null để hiển thị "Chưa xác định"
+      // Extract Facebook ID từ link
+      const fbId = extractFacebookId(facebookLinks[0]);
+      console.log(`🔍 Facebook ID extracted: ${fbId}`);
+      
+      // Tìm admin bằng Facebook ID
+      const admin = findAdminByFacebookId(fbId);
+      
+      if (admin) {
+        console.log(`✅ Tìm thấy admin: ${admin.name}`);
+      } else {
+        console.log(`❌ Không tìm thấy admin cho FB ID: ${fbId}`);
+      }
       
       // Tạo response message
       const responseMessage = createResponseMessage(admin, userName, facebookLinks[0]);
@@ -260,4 +314,5 @@ bot.on('polling_error', (error) => {
 
 console.log('🤖 CheckScam Telegram Bot đã khởi động!');
 console.log(`📊 Đã load ${adminsData.length} admin vào database`);
+console.log(`📱 Đã load ${Object.keys(fbAdminMapping).length} Facebook ID mapping`);
 console.log('🔍 Bot sẽ tự động phát hiện link Facebook...');

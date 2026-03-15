@@ -1,0 +1,24 @@
+{
+  "facebook_admin_mapping": {
+    "61588203634595": {
+      "name": "Nguyễn Vân",
+      "stt": "159",
+      "profileUrl": "https://admin.checkscam.vn/nguyen-bich-van/"
+    },
+    "100045800718530": {
+      "name": "Nguyễn Hoàng Dương", 
+      "stt": "1",
+      "profileUrl": "https://admin.checkscam.vn/nguyen-hoang-duong/"
+    },
+    "100039629906753": {
+      "name": "Tống Hoàng Phương Dương",
+      "stt": "2", 
+      "profileUrl": "https://admin.checkscam.vn/tong-hoang-phuong-duong/"
+    },
+    "692606902": {
+      "name": "Nguyễn Hồng Dương",
+      "stt": "3",
+      "profileUrl": "https://admin.checkscam.vn/nguyen-hong-duong/"
+    }
+  }
+}
