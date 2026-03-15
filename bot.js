@@ -54,29 +54,16 @@ const facebookLinks = loadFacebookLinks(); // Load để test
 // Regex để phát hiện link Facebook
 const facebookLinkRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/[^\s]+/gi;
 
-// Hàm trích xuất tên từ Facebook profile
-const extractFacebookName = async (url) => {
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      timeout: 10000
-    });
-    
-    const $ = cheerio.load(response.data);
-    
-    // Thử các selector khác nhau để lấy tên
-    let name = $('title').text();
-    if (name) {
-      name = name.replace(' | Facebook', '').trim();
-      return name;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Lỗi khi trích xuất tên Facebook:', error.message);
-    return null;
+// Hàm trích xuất tên từ Telegram user thay vì Facebook
+const getTelegramUserName = (msg) => {
+  if (msg.from.first_name && msg.from.last_name) {
+    return `${msg.from.first_name} ${msg.from.last_name}`;
+  } else if (msg.from.first_name) {
+    return msg.from.first_name;
+  } else if (msg.from.username) {
+    return `@${msg.from.username}`;
+  } else {
+    return 'User';
   }
 };
 
