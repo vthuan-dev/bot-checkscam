@@ -98,12 +98,27 @@ const loadFacebookAdminMapping = () => {
   }
 };
 
+// Load mapping username → ID
+const loadUsernameToIdMapping = () => {
+  try {
+    const mappingPath = path.join(process.cwd(), 'username-to-id-mapping.json');
+    const mappingContent = fs.readFileSync(mappingPath, 'utf8');
+    const data = JSON.parse(mappingContent);
+    console.log(`🔄 Đã load ${Object.keys(data.username_to_id_mapping).length} username mapping`);
+    return data.username_to_id_mapping;
+  } catch (error) {
+    console.error('Lỗi khi load username mapping:', error);
+    return {};
+  }
+};
+
 const fbAdminMapping = loadFacebookAdminMapping();
+const usernameToIdMapping = loadUsernameToIdMapping();
 
 // Regex để phát hiện link Facebook
 const facebookLinkRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/[^\s]+/gi;
 
-// Hàm extract Facebook ID hoặc username từ URL
+// Hàm extract Facebook ID hoặc username từ URL và convert thành ID
 const extractFacebookId = (url) => {
   // Các pattern Facebook ID và username
   const patterns = [
@@ -117,7 +132,21 @@ const extractFacebookId = (url) => {
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match) {
-      return match[1];
+      const extracted = match[1];
+      
+      // Nếu là số thì return luôn
+      if (/^\d+$/.test(extracted)) {
+        return extracted;
+      }
+      
+      // Nếu là username thì convert thành ID
+      if (usernameToIdMapping[extracted]) {
+        console.log(`🔄 Convert username "${extracted}" → ID "${usernameToIdMapping[extracted]}"`);
+        return usernameToIdMapping[extracted];
+      }
+      
+      // Nếu không có mapping thì return username (fallback)
+      return extracted;
     }
   }
   return null;
@@ -320,4 +349,5 @@ bot.on('polling_error', (error) => {
 console.log('🤖 CheckScam Telegram Bot đã khởi động!');
 console.log(`📊 Đã load ${adminsData.length} admin vào database`);
 console.log(`📱 Đã load ${Object.keys(fbAdminMapping).length} Facebook ID mapping`);
+console.log(`🔄 Đã load ${Object.keys(usernameToIdMapping).length} username → ID mapping`);
 console.log('🔍 Bot sẽ tự động phát hiện link Facebook...');
