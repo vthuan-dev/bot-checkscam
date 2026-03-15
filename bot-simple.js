@@ -195,22 +195,11 @@ const findAdmin = (searchName) => {
 // Hàm tạo response message
 const createResponseMessage = (admin, fbUrl) => {
   if (admin) {
-    return `👤 ${admin.name}
-${fbUrl}
-
-⭐ FB Real của: "${admin.name}"
-⭐ GDV này có bảo hiểm tại Checkscam.vn
-🔗 ${admin.profileUrl}
-
-🛡️ QUỸ BẢO HIỂM CHECKSCAM.VN
-[${admin.name}] BH 80.000.000.vnđ tại Checkscam.vn
-
-Checkscam Cam Kết Bảo Hiểm 80.000.000.vnđ cho mọi giao dịch của bạn với "${admin.name}" khi bạn tuân theo Nội Quy Giao Dịch của Checkscam`;
+    return `�️ FB Real của: "${admin.name}"
+🎖 GDV này có bảo hiểm tại Checkscam.vn
+🔗 ${admin.profileUrl}`;
   } else {
-    return `👤 User
-${fbUrl}
-
-⚠️ Chưa xác định.
+    return `�️ Chưa xác định.
 ❌ Không phải GDV của Checkscam.vn`;
   }
 };
