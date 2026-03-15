@@ -193,9 +193,9 @@ const findAdmin = (searchName) => {
 };
 
 // Hàm tạo response message
-const createResponseMessage = (admin, userName, fbUrl) => {
+const createResponseMessage = (admin, fbUrl) => {
   if (admin) {
-    return `👤 ${userName}
+    return `👤 ${admin.name}
 ${fbUrl}
 
 ⭐ FB Real của: "${admin.name}"
@@ -207,7 +207,7 @@ ${fbUrl}
 
 Checkscam Cam Kết Bảo Hiểm 80.000.000.vnđ cho mọi giao dịch của bạn với "${admin.name}" khi bạn tuân theo Nội Quy Giao Dịch của Checkscam`;
   } else {
-    return `👤 ${userName}
+    return `👤 User
 ${fbUrl}
 
 ⚠️ Chưa xác định.
@@ -235,9 +235,6 @@ bot.on('message', async (msg) => {
       // Gửi typing action
       await bot.sendChatAction(chatId, 'typing');
       
-      // Lấy tên từ Telegram user
-      const userName = getTelegramUserName(msg);
-      
       // Extract Facebook ID từ link
       const fbId = extractFacebookId(facebookLinks[0]);
       console.log(`🔍 Facebook ID extracted: ${fbId}`);
@@ -251,8 +248,8 @@ bot.on('message', async (msg) => {
         console.log(`❌ Không tìm thấy admin cho FB ID: ${fbId}`);
       }
       
-      // Tạo response message
-      const responseMessage = createResponseMessage(admin, userName, facebookLinks[0]);
+      // Tạo response message (không cần userName nữa)
+      const responseMessage = createResponseMessage(admin, facebookLinks[0]);
       
       // Reply tin nhắn gốc
       await bot.sendMessage(chatId, responseMessage, {
