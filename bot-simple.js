@@ -174,8 +174,9 @@ bot.on('message', async (msg) => {
       // Lấy tên từ Telegram user
       const userName = getTelegramUserName(msg);
       
-      // Tìm admin trong database (tạm thời dùng tên user)
-      const admin = findAdmin(userName);
+      // Không tự động tìm admin bằng tên Telegram user
+      // Chỉ hiển thị "Chưa xác định" vì không thể xác minh từ link FB
+      const admin = null; // Tạm thời set null để hiển thị "Chưa xác định"
       
       // Tạo response message
       const responseMessage = createResponseMessage(admin, userName, facebookLinks[0]);
