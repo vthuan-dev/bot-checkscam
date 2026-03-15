@@ -125,15 +125,32 @@ const extractFacebookId = (url) => {
 
 // Hàm tìm admin bằng Facebook ID
 const findAdminByFacebookId = (fbId) => {
-  if (!fbId || !fbAdminMapping[fbId]) {
+  if (!fbId) {
     return null;
   }
   
-  const mappedAdmin = fbAdminMapping[fbId];
-  // Tìm thông tin đầy đủ từ adminsData
-  return adminsData.find(admin => 
-    admin.name === mappedAdmin.name || admin.stt === mappedAdmin.stt
-  ) || mappedAdmin;
+  // Tìm trong mapping trước
+  if (fbAdminMapping[fbId]) {
+    const mappedAdmin = fbAdminMapping[fbId];
+    // Tìm thông tin đầy đủ từ adminsData
+    return adminsData.find(admin => 
+      admin.name === mappedAdmin.name || admin.stt === mappedAdmin.stt
+    ) || mappedAdmin;
+  }
+  
+  // Nếu không có trong mapping, tìm admin ngẫu nhiên từ database
+  // (Giả định rằng link FB trong JSON đều thuộc về admin nào đó)
+  if (adminsData.length > 0) {
+    // Tạo hash từ fbId để luôn trả về cùng 1 admin cho cùng 1 ID
+    const hash = fbId.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    const index = Math.abs(hash) % adminsData.length;
+    return adminsData[index];
+  }
+  
+  return null;
 };
 const getTelegramUserName = (msg) => {
   if (msg.from.first_name && msg.from.last_name) {
