@@ -11,8 +11,33 @@ const bot = new TelegramBot(token, { polling: true });
 // Load danh sách admin từ CSV
 const loadAdminsData = () => {
   try {
-    const csvPath = path.join(process.cwd(), '../src/admins.csv');
-    const csvContent = fs.readFileSync(csvPath, 'utf8');
+    // Thử nhiều đường dẫn khác nhau
+    const possiblePaths = [
+      path.join(process.cwd(), '../src/admins.csv'),
+      path.join(process.cwd(), 'admins.csv'),
+      path.join(process.cwd(), 'src/admins.csv'),
+      './admins.csv'
+    ];
+    
+    let csvContent = '';
+    let usedPath = '';
+    
+    for (const csvPath of possiblePaths) {
+      try {
+        csvContent = fs.readFileSync(csvPath, 'utf8');
+        usedPath = csvPath;
+        break;
+      } catch (err) {
+        continue;
+      }
+    }
+    
+    if (!csvContent) {
+      console.log('⚠️ Không tìm thấy file admins.csv, tạo dữ liệu mẫu...');
+      return createSampleAdmins();
+    }
+    
+    console.log(`📁 Đã tìm thấy file: ${usedPath}`);
     const lines = csvContent.split('\n').slice(1); // Bỏ header
     
     const admins = [];
@@ -29,8 +54,32 @@ const loadAdminsData = () => {
     return admins;
   } catch (error) {
     console.error('Lỗi khi load dữ liệu admin:', error);
-    return [];
+    return createSampleAdmins();
   }
+};
+
+// Tạo dữ liệu admin mẫu nếu không tìm thấy file CSV
+const createSampleAdmins = () => {
+  return [
+    {
+      stt: "1",
+      name: "Nguyễn Hoàng Dương",
+      imageUrl: "https://admin.checkscam.vn/wp-content/uploads/2021/04/117641146_10214270519277442_4820199700179888926_n-300x300-1-100x100.jpg",
+      profileUrl: "https://admin.checkscam.vn/nguyen-hoang-duong/"
+    },
+    {
+      stt: "2", 
+      name: "Tống Hoàng Phương Dương",
+      imageUrl: "https://admin.checkscam.vn/wp-content/uploads/2021/04/tonghoangphuongduong2-100x100.jpg",
+      profileUrl: "https://admin.checkscam.vn/tong-hoang-phuong-duong/"
+    },
+    {
+      stt: "3",
+      name: "Bích Tuyền",
+      imageUrl: "https://admin.checkscam.vn/wp-content/uploads/test.jpg",
+      profileUrl: "https://admin.checkscam.vn/bich-tuyen/"
+    }
+  ];
 };
 
 const adminsData = loadAdminsData();
