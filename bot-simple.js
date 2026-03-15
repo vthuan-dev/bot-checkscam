@@ -103,13 +103,15 @@ const fbAdminMapping = loadFacebookAdminMapping();
 // Regex để phát hiện link Facebook
 const facebookLinkRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/[^\s]+/gi;
 
-// Hàm extract Facebook ID từ URL
+// Hàm extract Facebook ID hoặc username từ URL
 const extractFacebookId = (url) => {
-  // Các pattern Facebook ID
+  // Các pattern Facebook ID và username
   const patterns = [
-    /(?:profile\.php\?id=)(\d+)/,  // profile.php?id=123456789
-    /facebook\.com\/(\d+)/,        // facebook.com/123456789
-    /fb\.com\/(\d+)/               // fb.com/123456789
+    /(?:profile\.php\?id=)(\d+)/,           // profile.php?id=123456789
+    /facebook\.com\/(\d+)/,                 // facebook.com/123456789
+    /fb\.com\/(\d+)/,                       // fb.com/123456789
+    /facebook\.com\/([a-zA-Z0-9._]+)\/?$/,  // facebook.com/username
+    /fb\.com\/([a-zA-Z0-9._]+)\/?$/         // fb.com/username
   ];
   
   for (const pattern of patterns) {
