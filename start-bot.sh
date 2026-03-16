@@ -19,7 +19,7 @@ pm2 delete checkscam-bot 2>/dev/null || true
 
 # Start bot với PM2
 echo "🔄 Starting bot with PM2..."
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 
 # Save PM2 process list
 pm2 save

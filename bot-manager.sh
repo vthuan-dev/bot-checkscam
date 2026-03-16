@@ -9,7 +9,7 @@ case "$1" in
     start)
         echo "🚀 Starting $BOT_NAME..."
         cd $BOT_DIR
-        pm2 start ecosystem.config.js
+        pm2 start ecosystem.config.cjs
         ;;
     stop)
         echo "⏹️  Stopping $BOT_NAME..."
