@@ -11,7 +11,6 @@ const bot = new TelegramBot(token, { polling: true });
 // Load danh sách admin từ CSV
 const loadAdminsData = () => {
   try {
-    // Thử nhiều đường dẫn khác nhau
     const possiblePaths = [
       path.join(process.cwd(), '../src/admins.csv'),
       path.join(process.cwd(), 'admins.csv'),
@@ -33,8 +32,8 @@ const loadAdminsData = () => {
     }
     
     if (!csvContent) {
-      console.log('⚠️ Không tìm thấy file admins.csv, tạo dữ liệu mẫu...');
-      return createSampleAdmins();
+      console.log('⚠️ Không tìm thấy file admins.csv');
+      return [];
     }
     
     console.log(`📁 Đã tìm thấy file: ${usedPath}`);
@@ -54,35 +53,9 @@ const loadAdminsData = () => {
     return admins;
   } catch (error) {
     console.error('Lỗi khi load dữ liệu admin:', error);
-    return createSampleAdmins();
+    return [];
   }
 };
-
-// Tạo dữ liệu admin mẫu nếu không tìm thấy file CSV
-const createSampleAdmins = () => {
-  return [
-    {
-      stt: "1",
-      name: "Nguyễn Hoàng Dương",
-      imageUrl: "https://admin.checkscam.vn/wp-content/uploads/2021/04/117641146_10214270519277442_4820199700179888926_n-300x300-1-100x100.jpg",
-      profileUrl: "https://admin.checkscam.vn/nguyen-hoang-duong/"
-    },
-    {
-      stt: "2", 
-      name: "Tống Hoàng Phương Dương",
-      imageUrl: "https://admin.checkscam.vn/wp-content/uploads/2021/04/tonghoangphuongduong2-100x100.jpg",
-      profileUrl: "https://admin.checkscam.vn/tong-hoang-phuong-duong/"
-    },
-    {
-      stt: "3",
-      name: "Bích Tuyền",
-      imageUrl: "https://admin.checkscam.vn/wp-content/uploads/test.jpg",
-      profileUrl: "https://admin.checkscam.vn/bich-tuyen/"
-    }
-  ];
-};
-
-const adminsData = loadAdminsData();
 
 // Load mapping Facebook ID với admin
 const loadFacebookAdminMapping = () => {
@@ -112,15 +85,15 @@ const loadUsernameToIdMapping = () => {
   }
 };
 
+const adminsData = loadAdminsData();
 const fbAdminMapping = loadFacebookAdminMapping();
 const usernameToIdMapping = loadUsernameToIdMapping();
 
 // Regex để phát hiện link Facebook
 const facebookLinkRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/[^\s]+/gi;
 
-// Hàm extract Facebook ID hoặc username từ URL và convert thành ID
+// Hàm extract Facebook ID từ URL
 const extractFacebookId = (url) => {
-  // Các pattern Facebook ID và username
   const patterns = [
     /(?:profile\.php\?id=)(\d+)/,           // profile.php?id=123456789
     /facebook\.com\/(\d+)/,                 // facebook.com/123456789
@@ -136,16 +109,20 @@ const extractFacebookId = (url) => {
       
       // Nếu là số thì return luôn
       if (/^\d+$/.test(extracted)) {
+        console.log(`✅ Facebook ID found: ${extracted}`);
         return extracted;
       }
       
       // Nếu là username thì convert thành ID
+      console.log(`🔍 Username detected: ${extracted}`);
+      
       if (usernameToIdMapping[extracted]) {
         console.log(`🔄 Convert username "${extracted}" → ID "${usernameToIdMapping[extracted]}"`);
         return usernameToIdMapping[extracted];
       }
       
-      // Nếu không có mapping thì return username (fallback)
+      // Fallback: return username
+      console.log(`⚠️ Username "${extracted}" chưa có mapping, sử dụng fallback`);
       return extracted;
     }
   }
@@ -154,9 +131,7 @@ const extractFacebookId = (url) => {
 
 // Hàm tìm admin bằng Facebook ID
 const findAdminByFacebookId = (fbId) => {
-  if (!fbId) {
-    return null;
-  }
+  if (!fbId) return null;
   
   // Tìm trong mapping trước
   if (fbAdminMapping[fbId]) {
@@ -167,68 +142,17 @@ const findAdminByFacebookId = (fbId) => {
     ) || mappedAdmin;
   }
   
-  // Nếu không có trong mapping, tìm admin ngẫu nhiên từ database
-  // (Giả định rằng link FB trong JSON đều thuộc về admin nào đó)
-  if (adminsData.length > 0) {
-    // Tạo hash từ fbId để luôn trả về cùng 1 admin cho cùng 1 ID
-    const hash = fbId.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    const index = Math.abs(hash) % adminsData.length;
-    return adminsData[index];
-  }
-  
   return null;
-};
-const getTelegramUserName = (msg) => {
-  if (msg.from.first_name && msg.from.last_name) {
-    return `${msg.from.first_name} ${msg.from.last_name}`;
-  } else if (msg.from.first_name) {
-    return msg.from.first_name;
-  } else if (msg.from.username) {
-    return `@${msg.from.username}`;
-  } else {
-    return 'User';
-  }
-};
-
-// Hàm tìm kiếm admin trong database
-const findAdmin = (searchName) => {
-  if (!searchName) return null;
-  
-  const normalizedSearch = searchName.toLowerCase()
-    .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g, 'a')
-    .replace(/[èéẹẻẽêềếệểễ]/g, 'e')
-    .replace(/[ìíịỉĩ]/g, 'i')
-    .replace(/[òóọỏõôồốộổỗơờớợởỡ]/g, 'o')
-    .replace(/[ùúụủũưừứựửữ]/g, 'u')
-    .replace(/[ỳýỵỷỹ]/g, 'y')
-    .replace(/đ/g, 'd');
-  
-  return adminsData.find(admin => {
-    const normalizedAdminName = admin.name.toLowerCase()
-      .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g, 'a')
-      .replace(/[èéẹẻẽêềếệểễ]/g, 'e')
-      .replace(/[ìíịỉĩ]/g, 'i')
-      .replace(/[òóọỏõôồốộổỗơờớợởỡ]/g, 'o')
-      .replace(/[ùúụủũưừứựửữ]/g, 'u')
-      .replace(/[ỳýỵỷỹ]/g, 'y')
-      .replace(/đ/g, 'd');
-    
-    return normalizedAdminName.includes(normalizedSearch) || 
-           normalizedSearch.includes(normalizedAdminName);
-  });
 };
 
 // Hàm tạo response message
-const createResponseMessage = (admin, fbUrl) => {
+const createResponseMessage = (admin) => {
   if (admin) {
-    return `�️ FB Real của: "${admin.name}"
+    return `🕵️ FB Real của: "${admin.name}"
 🎖 GDV này có bảo hiểm tại Checkscam.vn
 🔗 ${admin.profileUrl}`;
   } else {
-    return `�️ Chưa xác định.
+    return `🕵️ Chưa xác định.
 ❌ Không phải GDV của Checkscam.vn`;
   }
 };
@@ -266,8 +190,8 @@ bot.on('message', async (msg) => {
         console.log(`❌ Không tìm thấy admin cho FB ID: ${fbId}`);
       }
       
-      // Tạo response message (không cần userName nữa)
-      const responseMessage = createResponseMessage(admin, facebookLinks[0]);
+      // Tạo response message
+      const responseMessage = createResponseMessage(admin);
       
       // Reply tin nhắn gốc
       await bot.sendMessage(chatId, responseMessage, {
@@ -303,32 +227,14 @@ Chỉ cần gửi link Facebook, bot sẽ tự động phản hồi!`;
   bot.sendMessage(chatId, welcomeMessage);
 });
 
-// Command /help
-bot.onText(/\/help/, (msg) => {
-  const chatId = msg.chat.id;
-  const helpMessage = `📋 Hướng dẫn sử dụng CheckScam Bot
-
-Commands:
-/start - Khởi động bot
-/help - Hiển thị hướng dẫn
-/stats - Thống kê database admin
-
-Tự động:
-Bot sẽ tự động phản hồi khi phát hiện link Facebook trong tin nhắn.
-
-Lưu ý:
-- Bot hoạt động trong cả chat 1-1 và group
-- Bot sẽ reply tin nhắn chứa link FB`;
-
-  bot.sendMessage(chatId, helpMessage);
-});
-
 // Command /stats
 bot.onText(/\/stats/, (msg) => {
   const chatId = msg.chat.id;
   const statsMessage = `📊 Thống kê Database CheckScam
 
 👥 Tổng số Admin: ${adminsData.length}
+📱 Facebook ID Mapping: ${Object.keys(fbAdminMapping).length}
+🔄 Username Mapping: ${Object.keys(usernameToIdMapping).length}
 🛡️ Bảo hiểm: 80.000.000 VNĐ/admin
 🔄 Cập nhật: ${new Date().toLocaleDateString('vi-VN')}
 

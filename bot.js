@@ -4,6 +4,8 @@ import * as cheerio from 'cheerio';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { findAdminByFacebookUrl, formatAdminInfo } from './facebook-admin-lookup.js';
+import { findAdminByContact, formatAdminContactInfo } from './contact-lookup.js';
 
 dotenv.config();
 
@@ -51,8 +53,12 @@ const loadFacebookLinks = () => {
 const adminsData = loadAdminsData();
 const facebookLinks = loadFacebookLinks(); // Load để test
 
-// Regex để phát hiện link Facebook
-const facebookLinkRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/[^\s]+/gi;
+// Regex để phát hiện link Facebook (chỉ match URL đúng format)
+const facebookLinkRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/profile\.php\?id=\d+(?![a-zA-Z0-9])/gi;
+
+// Regex để phát hiện phone và bank account
+const phoneRegex = /(?:^|\s)((?:0|\+84)[0-9]{8,10})(?=\s|$)/g;
+const bankAccountRegex = /(?:^|\s)(\d{10,20})(?=\s|$)/g;
 
 // Hàm trích xuất tên từ Telegram user thay vì Facebook
 const getTelegramUserName = (msg) => {
@@ -122,14 +128,28 @@ Từ ngày 10/07/2025 CS sẽ bảo đảm an toàn cho bạn với số tiền 
     console.error('Lỗi khi gửi card admin:', error.message);
   }
 };
-// Hàm tạo response message
-const createResponseMessage = (admin, fbName, fbUrl) => {
+/**
+ * Tạo response message chuẩn cho bot dựa trên loại match
+ * @param {object|null} admin - Admin info hoặc null
+ * @param {string} matchType - Loại match: 'facebook', 'phone', 'bank'
+ * @returns {string} - Formatted response message
+ */
+const createStandardResponse = (admin, matchType = 'facebook') => {
   if (admin) {
-    return `🕵️ FB Real của: "${admin.name}"
+    let prefix = '🕵️ FB Real của:';
+    
+    // Thay đổi prefix dựa trên loại match
+    if (matchType === 'phone') {
+      prefix = '🕵️ SĐT của:';
+    } else if (matchType === 'bank') {
+      prefix = '🕵️ STK của:';
+    }
+    
+    return `${prefix} "${admin.name}"
 🎖 GDV này có bảo hiểm tại Checkscam.vn
-🔗 ${admin.profileUrl}`;
+🔗 ${admin.adminUrl}`;
   } else {
-    return `⚠️ Chưa xác định.
+    return `🕵️ Chưa xác định.
 ❌ Không phải GDV của Checkscam.vn`;
   }
 };
@@ -151,6 +171,11 @@ bot.on('message', async (msg) => {
   // Tìm link Facebook trong tin nhắn
   const facebookLinks = messageText.match(facebookLinkRegex);
   
+  // Tìm phone/bank account trong tin nhắn
+  const hasPhone = phoneRegex.test(messageText);
+  const hasBankAccount = bankAccountRegex.test(messageText);
+  
+  // Xử lý Facebook links
   if (facebookLinks && facebookLinks.length > 0) {
     console.log(`Phát hiện link Facebook trong group ${msg.chat.title}: ${facebookLinks[0]}`);
     
@@ -158,15 +183,22 @@ bot.on('message', async (msg) => {
       // Gửi typing action
       await bot.sendChatAction(chatId, 'typing');
       
-      console.log(`Phát hiện link Facebook trong group ${msg.chat.title || 'Unknown'}: ${facebookLinks[0]}`);
+      const facebookUrl = facebookLinks[0];
+      console.log(`Đang kiểm tra Facebook URL: ${facebookUrl}`);
       
-      // Tìm admin đầu tiên để test (sẽ cải thiện logic sau)
-      const admin = adminsData[0]; // Lấy admin đầu tiên để test
+      // Tìm admin từ Facebook URL
+      const admin = findAdminByFacebookUrl(facebookUrl);
       
-      // Tạo response message
-      const responseMessage = createResponseMessage(admin, 'User', facebookLinks[0]);
+      // Tạo response message chuẩn
+      const responseMessage = createStandardResponse(admin, 'facebook');
       
-      // Reply tin nhắn gốc với thông tin ngắn gọn
+      if (admin) {
+        console.log(`✅ Tìm thấy admin: ${admin.name}`);
+      } else {
+        console.log(`❌ Không tìm thấy admin cho URL: ${facebookUrl}`);
+      }
+      
+      // Reply tin nhắn gốc với thông tin
       await bot.sendMessage(chatId, responseMessage, {
         reply_to_message_id: msg.message_id
       });
@@ -175,6 +207,45 @@ bot.on('message', async (msg) => {
       console.error('Lỗi khi xử lý link Facebook:', error);
       await bot.sendMessage(chatId, 
         '❌ Có lỗi xảy ra khi kiểm tra link. Vui lòng thử lại sau.', 
+        { reply_to_message_id: msg.message_id }
+      );
+    }
+  }
+  // Xử lý Phone/Bank Account (nếu không có Facebook link)
+  else if (hasPhone || hasBankAccount) {
+    console.log(`Phát hiện phone/bank trong group ${msg.chat.title}: ${messageText.substring(0, 50)}...`);
+    
+    try {
+      // Gửi typing action
+      await bot.sendChatAction(chatId, 'typing');
+      
+      console.log(`Đang kiểm tra contact info: ${messageText}`);
+      
+      // Tìm admin từ phone/bank account
+      const admin = findAdminByContact(messageText);
+      
+      // Tạo response message chuẩn với loại match phù hợp
+      let matchType = 'phone'; // default
+      if (admin && admin.matchType === 'bank') {
+        matchType = 'bank';
+      }
+      const responseMessage = createStandardResponse(admin, matchType);
+      
+      if (admin) {
+        console.log(`✅ Tìm thấy admin qua ${admin.matchType}: ${admin.name}`);
+      } else {
+        console.log(`❌ Không tìm thấy admin cho contact info`);
+      }
+      
+      // Reply tin nhắn gốc với thông tin
+      await bot.sendMessage(chatId, responseMessage, {
+        reply_to_message_id: msg.message_id
+      });
+      
+    } catch (error) {
+      console.error('Lỗi khi xử lý contact info:', error);
+      await bot.sendMessage(chatId, 
+        '❌ Có lỗi xảy ra khi kiểm tra thông tin liên hệ. Vui lòng thử lại sau.', 
         { reply_to_message_id: msg.message_id }
       );
     }
@@ -205,19 +276,27 @@ bot.onText(/\/help/, (msg) => {
   const chatId = msg.chat.id;
   const helpMessage = `📋 **Hướng dẫn sử dụng CheckScam Bot**
 
+**Tính năng tự động:**
+🔍 **Facebook Link** - Paste link FB để kiểm tra admin
+📱 **Số điện thoại** - Paste SĐT để kiểm tra admin  
+🏦 **Số tài khoản** - Paste STK để kiểm tra admin
+
 **Commands:**
 /start - Khởi động bot
 /help - Hiển thị hướng dẫn
 /stats - Thống kê database admin
-/test - Test bot với link Facebook ngẫu nhiên
+/sync - Sync data (chỉ admin bot)
 
-**Tự động:**
-Bot sẽ tự động phản hồi khi phát hiện link Facebook trong tin nhắn group.
+**Ví dụ sử dụng:**
+• Paste: https://facebook.com/profile.php?id=123456
+• Paste: 0763666222
+• Paste: 0491000133345
+• Paste: "Check số này: 0763666222"
 
 **Lưu ý:**
-- Bot chỉ hoạt động trong group/supergroup
-- Cần thêm bot vào group với quyền gửi tin nhắn
-- Bot sẽ reply tin nhắn chứa link FB`;
+- Bot hoạt động trong group/supergroup và private chat
+- Tự động reply khi phát hiện FB link, SĐT, hoặc STK
+- Chỉ kiểm tra được admin có trong database CheckScam`;
 
   bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
 });
@@ -225,65 +304,74 @@ Bot sẽ tự động phản hồi khi phát hiện link Facebook trong tin nh�
 // Command /stats
 bot.onText(/\/stats/, (msg) => {
   const chatId = msg.chat.id;
+  
+  // Load admin mapping để lấy stats
+  let adminMapping = {};
+  try {
+    const mappingData = fs.readFileSync('admin-facebook-mapping.json', 'utf8');
+    adminMapping = JSON.parse(mappingData);
+  } catch (error) {
+    console.error('Không thể load admin mapping:', error.message);
+  }
+  
+  const totalAdmins = Object.keys(adminMapping).length;
+  const adminsWithFacebook = Object.values(adminMapping).filter(admin => admin.facebookUrl).length;
+  const adminsWithoutFacebook = totalAdmins - adminsWithFacebook;
+  
   const statsMessage = `📊 **Thống kê Database CheckScam**
 
-👥 Tổng số Admin: ${adminsData.length}
+👥 Tổng số Admin: ${totalAdmins}
+📘 Có Facebook: ${adminsWithFacebook}
+❌ Chưa có Facebook: ${adminsWithoutFacebook}
 🛡️ Bảo hiểm: 80.000.000 VNĐ/admin
 🔄 Cập nhật: ${new Date().toLocaleDateString('vi-VN')}
-🔗 Link test: ${facebookLinks.length}
+
+**Tỷ lệ coverage:** ${((adminsWithFacebook/totalAdmins)*100).toFixed(1)}%
 
 Database được đồng bộ từ: admin.checkscam.vn`;
 
   bot.sendMessage(chatId, statsMessage, { parse_mode: 'Markdown' });
 });
 
-// Command /test - Test bot với link Facebook mẫu
-bot.onText(/\/test/, async (msg) => {
+// Command /sync - Sync admin data (chỉ admin bot)
+bot.onText(/\/sync/, async (msg) => {
   const chatId = msg.chat.id;
+  const userId = msg.from.id;
   
-  if (facebookLinks.length === 0) {
-    bot.sendMessage(chatId, '❌ Không có link Facebook để test');
+  // Kiểm tra quyền admin (thay YOUR_ADMIN_ID bằng Telegram ID của bạn)
+  const adminIds = [123456789]; // Thay bằng ID Telegram của bạn
+  
+  if (!adminIds.includes(userId)) {
+    bot.sendMessage(chatId, '❌ Bạn không có quyền sử dụng lệnh này');
     return;
   }
   
-  // Lấy link ngẫu nhiên để test
-  const randomLink = facebookLinks[Math.floor(Math.random() * facebookLinks.length)];
-  
-  const testMessage = `🧪 **Test Bot với link ngẫu nhiên:**
+  try {
+    bot.sendMessage(chatId, '🔄 Đang sync admin data...');
+    
+    // Import sync function
+    const { syncAdminData } = await import('./sync-admin-data.js');
+    const result = await syncAdminData();
+    
+    const syncMessage = `✅ **Sync thành công!**
 
-${randomLink}
+📊 Tổng admin: ${result.totalAdmins}
+📘 Có Facebook: ${result.adminsWithFacebook}
+📅 Cập nhật: ${new Date().toLocaleString('vi-VN')}
 
-Bot sẽ tự động phát hiện và phản hồi...`;
+Bot đã reload data mới!`;
 
-  await bot.sendMessage(chatId, testMessage, { parse_mode: 'Markdown' });
-  
-  // Simulate message với link FB
-  setTimeout(async () => {
-    try {
-      await bot.sendChatAction(chatId, 'typing');
-      
-      const fbName = await extractFacebookName(randomLink);
-      
-      if (fbName) {
-        const admin = findAdmin(fbName);
-        const responseMessage = createResponseMessage(admin, fbName, randomLink);
-        
-        await bot.sendMessage(chatId, responseMessage);
-        
-        // Nếu tìm thấy admin, gửi card
-        if (admin) {
-          await createAdminCard(chatId, admin, msg.message_id);
-        }
-      } else {
-        await bot.sendMessage(chatId, 
-          '⚠️ Không thể trích xuất thông tin từ link Facebook này.'
-        );
-      }
-    } catch (error) {
-      console.error('Lỗi test:', error);
-      await bot.sendMessage(chatId, '❌ Có lỗi xảy ra khi test');
-    }
-  }, 2000);
+    bot.sendMessage(chatId, syncMessage, { parse_mode: 'Markdown' });
+    
+    // Reload admin mapping trong memory
+    const fs = await import('fs');
+    const mappingData = fs.readFileSync('admin-facebook-mapping.json', 'utf8');
+    // Note: Cần restart bot để reload hoàn toàn, hoặc implement hot reload
+    
+  } catch (error) {
+    console.error('Lỗi sync:', error);
+    bot.sendMessage(chatId, '❌ Có lỗi khi sync data. Kiểm tra log.');
+  }
 });
 
 // Error handling
@@ -296,6 +384,4 @@ bot.on('polling_error', (error) => {
 });
 
 console.log('🤖 CheckScam Telegram Bot đã khởi động!');
-console.log(`📊 Đã load ${adminsData.length} admin vào database`);
-console.log(`🔗 Đã load ${facebookLinks.length} link Facebook để test`);
-console.log('🔍 Bot sẽ tự động phát hiện link Facebook trong group...');
+console.log('🔍 Bot sẽ tự động phát hiện Facebook URL, SĐT, và STK trong tin nhắn...');
