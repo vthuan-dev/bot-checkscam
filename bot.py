@@ -43,7 +43,23 @@ def load_admins_data():
     """Load danh sách admin từ CSV"""
     global admins_data
     try:
-        csv_path = Path('../src/admins.csv')
+        # Thử các đường dẫn có thể có
+        possible_paths = [
+            Path('admins.csv'),           # Cùng thư mục
+            Path('../src/admins.csv'),    # Thư mục src
+            Path('./admins.csv')          # Current directory
+        ]
+        
+        csv_path = None
+        for path in possible_paths:
+            if path.exists():
+                csv_path = path
+                break
+        
+        if not csv_path:
+            logger.warning("Không tìm thấy file admins.csv, sử dụng dữ liệu rỗng")
+            return []
+        
         admins_data = []
         
         with open(csv_path, 'r', encoding='utf-8') as file:
@@ -60,7 +76,7 @@ def load_admins_data():
                         'profileUrl': profile_url
                     })
         
-        logger.info(f"Đã load {len(admins_data)} admin từ database")
+        logger.info(f"Đã load {len(admins_data)} admin từ {csv_path}")
         return admins_data
     except Exception as error:
         logger.error(f"Lỗi khi load dữ liệu admin: {error}")
