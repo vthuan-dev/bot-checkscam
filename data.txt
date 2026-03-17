@@ -12,7 +12,7 @@ STT,Name,Profile URL
 11,"Bùi Đức Long","https://admin.checkscam.vn/bui-duc-long/"
 12,"Đỗ Văn Mạnh","https://admin.checkscam.vn/do-van-manh/"https://www.facebook.com/profile.php?id=100016827977704
 13,"Dương Thị Vân","https://admin.checkscam.vn/duong-thi-van/"
-14,"Duy Nguyễn","https://admin.checkscam.vn/duy-nguyen/"https://www.facebook.com/profile.php?id=61588203634595
+14,"Duy Nguyễn","https://adminn.checkscam.vn/duy-nguyen/"https://www.facebook.com/profile.php?id=61588203634595
 15,"Lò Văn Thực","https://admin.checkscam.vn/lo-van-thuc/"https://www.facebook.com/profile.php?id=100025047793351 
 16,"Hoàng Mai Thuận","https://admin.checkscam.vn/hoang-mai-thuan/"https://www.facebook.com/profile.php?id=18906816
 17,"Phan Anh Quân","https://admin.checkscam.vn/phan-anh-quan/"https://www.facebook.com/profile.php?id=100015075061788
